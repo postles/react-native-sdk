@@ -1,0 +1,53 @@
+{
+  "name": "@postles/react-native-sdk",
+  "version": "0.1.0",
+  "description": "Postles React Native SDK for user identification, event tracking, push notifications, and in-app messaging",
+  "main": "lib/cjs/index.js",
+  "module": "lib/esm/index.js",
+  "types": "lib/cjs/index.d.ts",
+  "source": "src/index.ts",
+  "files": [
+    "src",
+    "lib"
+  ],
+  "scripts": {
+    "build": "rimraf lib/ && npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc --project tsconfig.module.json",
+    "build:cjs": "tsc --project tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "publish:npm": "npm run build && npm version $npm_config_tag --no-git-tag-version && npm pack && npm publish --tag=latest --access public"
+  },
+  "keywords": [
+    "postles",
+    "react-native",
+    "analytics",
+    "tracking",
+    "push-notifications",
+    "in-app-messaging"
+  ],
+  "author": "Postles",
+  "license": "MIT",
+  "peerDependencies": {
+    "@react-native-async-storage/async-storage": ">=1.17.0",
+    "react": ">=17.0.0",
+    "react-native": ">=0.68.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native-webview": {
+      "optional": true
+    },
+    "react-native-device-info": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@react-native-async-storage/async-storage": "^3.0.2",
+    "@types/react": "^19.0.0",
+    "react": "^19.2.4",
+    "react-native": "^0.84.1",
+    "react-native-device-info": "^15.0.2",
+    "react-native-webview": "^13.16.1",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.0.0"
+  }
+}
