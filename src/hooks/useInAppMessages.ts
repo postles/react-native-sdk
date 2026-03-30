@@ -4,7 +4,7 @@ import type {
     InAppAction,
     InAppDisplayState,
 } from '../models'
-import { Postles } from '../Postles'
+import { usePostles } from './usePostles'
 
 export interface UseInAppMessagesOptions {
     /** Automatically fetch and show notifications. Default: true */
@@ -50,15 +50,14 @@ export function useInAppMessages(
         onNew,
     } = options
 
+    const postles = usePostles()
+
     const [currentNotification, setCurrentNotification] =
         useState<PostlesNotification | null>(null)
     const [visible, setVisible] = useState(false)
     const notificationQueue = useRef<PostlesNotification[]>([])
-    // Track visible in a ref so processNotifications doesn't need it as a dep,
-    // which would otherwise cause refresh to recreate and re-trigger the effect.
     const visibleRef = useRef(false)
 
-    // Keep visibleRef in sync with visible state
     useEffect(() => {
         visibleRef.current = visible
     }, [visible])
@@ -78,7 +77,7 @@ export function useInAppMessages(
 
     const processNotifications = useCallback(
         async (notifications: PostlesNotification[]) => {
-            const postles = Postles.shared
+            if (!postles) return
 
             for (const notification of notifications) {
                 const state = onNew?.(notification) ?? 'show'
@@ -103,16 +102,15 @@ export function useInAppMessages(
                 }
             }
 
-            // Show the first queued notification if nothing is currently displayed
             if (!visibleRef.current && notificationQueue.current.length > 0) {
                 showNext()
             }
         },
-        [onNew, onError, showNext]
+        [postles, onNew, onError, showNext]
     )
 
     const refresh = useCallback(() => {
-        const postles = Postles.shared
+        if (!postles) return
 
         postles
             .getNotifications()
@@ -122,25 +120,22 @@ export function useInAppMessages(
                     err instanceof Error ? err : new Error(String(err))
                 )
             })
-    }, [processNotifications, onError])
+    }, [postles, processNotifications, onError])
 
     const dismiss = useCallback(() => {
-        if (currentNotification) {
-            const postles = Postles.shared
-            postles.consume(currentNotification).catch(() => {})
-            setVisible(false)
-            visibleRef.current = false
-            // Show next notification after a brief delay for animation
-            setTimeout(showNext, 100)
-        }
-    }, [currentNotification, showNext])
+        if (!postles || !currentNotification) return
 
-    // Auto-fetch notifications on mount
+        postles.consume(currentNotification).catch(() => {})
+        setVisible(false)
+        visibleRef.current = false
+        setTimeout(showNext, 100)
+    }, [postles, currentNotification, showNext])
+
     useEffect(() => {
-        if (autoShow) {
+        if (autoShow && postles) {
             refresh()
         }
-    }, [autoShow, refresh])
+    }, [autoShow, postles, refresh])
 
     return {
         currentNotification,

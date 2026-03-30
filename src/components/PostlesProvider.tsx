@@ -2,7 +2,7 @@ import React, { createContext, useEffect, useState } from 'react'
 import { Postles } from '../Postles'
 import type { PostlesConfig } from '../models'
 
-export const PostlesContext = createContext<Postles | null>(null)
+export const PostlesContext = createContext<Postles | null | undefined>(undefined)
 
 interface PostlesProviderProps {
     config: PostlesConfig
@@ -16,7 +16,7 @@ export function PostlesProvider({ config, children, onReady }: PostlesProviderPr
     useEffect(() => {
         let cancelled = false
 
-        Postles.initialize(config).then((inst) => {
+        Postles.create(config).then((inst) => {
             if (!cancelled) {
                 setInstance(inst)
                 onReady?.(inst)
