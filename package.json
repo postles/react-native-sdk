@@ -6,6 +6,9 @@
   "module": "lib/esm/index.js",
   "types": "lib/cjs/index.d.ts",
   "source": "src/index.ts",
+  "workspaces": [
+    "example"
+  ],
   "files": [
     "src",
     "lib"
@@ -41,12 +44,12 @@
     }
   },
   "devDependencies": {
-    "@react-native-async-storage/async-storage": "^3.0.2",
-    "@types/react": "^19.0.0",
-    "react": "^19.2.4",
-    "react-native": "^0.84.1",
-    "react-native-device-info": "^15.0.2",
-    "react-native-webview": "^13.16.1",
+    "@react-native-async-storage/async-storage": "~2.1.2",
+    "@types/react": "~19.0.0",
+    "react": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-device-info": "^11.1.0",
+    "react-native-webview": "13.13.5",
     "rimraf": "^5.0.0",
     "typescript": "^5.0.0"
   }

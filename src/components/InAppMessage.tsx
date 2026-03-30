@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useRef, useEffect } from 'react'
 import { Modal, StyleSheet, Linking } from 'react-native'
 import type {
     PostlesNotification,
@@ -58,6 +58,28 @@ export function InAppMessage({
     onError,
     onDisplay,
 }: InAppMessageProps) {
+    // Guard against double-dismiss: both onShouldStartLoadWithRequest and
+    // onNavigationStateChange can fire for the same postles:// URL on Android
+    // (onPageStarted fires before shouldOverrideUrlLoading blocks the navigation).
+    const dismissedRef = useRef(false)
+    useEffect(() => {
+        dismissedRef.current = false
+    }, [notification])
+
+    const handlePostlesUrl = useCallback(
+        (url: string) => {
+            if (url === 'postles://dismiss') {
+                if (!dismissedRef.current) {
+                    dismissedRef.current = true
+                    onDismiss(notification)
+                }
+            } else {
+                onAction?.('custom', { url }, notification)
+            }
+        },
+        [notification, onDismiss, onAction]
+    )
+
     // All hooks must be called unconditionally before any early returns
     const handleMessage = useCallback(
         (event: { nativeEvent: { data: string } }) => {
@@ -75,28 +97,17 @@ export function InAppMessage({
         [notification, onDismiss, onAction]
     )
 
+    // Fallback for Android: onNavigationStateChange can fire for postles://
+    // navigations when onShouldStartLoadWithRequest hasn't blocked them yet.
     const handleNavigationStateChange = useCallback(
         (navState: { url: string }) => {
             const url = navState.url
-
-            if (url === 'about:blank') return
-
-            // Handle postles:// scheme
+            if (!url || url === 'about:blank') return
             if (url.startsWith('postles://')) {
-                if (url === 'postles://dismiss') {
-                    onDismiss(notification)
-                } else {
-                    onAction?.('custom', { url }, notification)
-                }
-                return
-            }
-
-            // Open external URLs in system browser
-            if (url.startsWith('http://') || url.startsWith('https://')) {
-                Linking.openURL(url).catch(() => {})
+                handlePostlesUrl(url)
             }
         },
-        [notification, onDismiss, onAction]
+        [handlePostlesUrl]
     )
 
     const handleShouldStartLoad = useCallback(
@@ -108,11 +119,7 @@ export function InAppMessage({
 
             // Block postles:// scheme URLs and handle them
             if (url.startsWith('postles://')) {
-                if (url === 'postles://dismiss') {
-                    onDismiss(notification)
-                } else {
-                    onAction?.('custom', { url }, notification)
-                }
+                handlePostlesUrl(url)
                 return false
             }
 
@@ -124,7 +131,7 @@ export function InAppMessage({
 
             return true
         },
-        [notification, onDismiss, onAction]
+        [handlePostlesUrl]
     )
 
     const handleLoad = useCallback(() => {
@@ -132,10 +139,18 @@ export function InAppMessage({
     }, [notification, onDisplay])
 
     const handleError = useCallback(
-        (syntheticEvent: { nativeEvent: { description: string } }) => {
-            onError?.(new Error(syntheticEvent.nativeEvent.description))
+        (syntheticEvent: { nativeEvent: { description: string; url?: string } }) => {
+            const { description, url } = syntheticEvent.nativeEvent
+            // Android last-resort fallback: if the WebView emits ERR_UNKNOWN_URL_SCHEME
+            // for a postles:// URL before onShouldStartLoadWithRequest could block it,
+            // handle it here instead of surfacing a load error.
+            if (url?.startsWith('postles://')) {
+                handlePostlesUrl(url)
+                return
+            }
+            onError?.(new Error(description))
         },
-        [onError]
+        [onError, handlePostlesUrl]
     )
 
     if (!WebView) {

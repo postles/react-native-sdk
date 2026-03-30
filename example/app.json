@@ -1,0 +1,23 @@
+{
+    "expo": {
+        "name": "Postles Example",
+        "slug": "postles-example",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.postles.example"
+        },
+        "android": {
+            "package": "com.postles.example"
+        },
+        "plugins": [
+            [
+                "expo-notifications",
+                {
+                    "color": "#6366f1"
+                }
+            ]
+        ]
+    }
+}
