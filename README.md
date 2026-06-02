@@ -89,6 +89,18 @@ await postles.identify({
 })
 ```
 
+### Locale & timezone
+
+The user's `locale` (BCP 47, e.g. `en-US`) and `timezone` (IANA, e.g. `America/New_York`) are detected from the device automatically on every `identify` call. Pass them explicitly to override the device values:
+
+```tsx
+await postles.identify({
+    id: 'user-123',
+    locale: 'fr-FR',
+    timezone: 'Europe/Paris',
+})
+```
+
 ### Reset
 
 Call `reset()` on logout. This generates a new anonymous ID and clears the external ID.

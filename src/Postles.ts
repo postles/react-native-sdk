@@ -14,7 +14,7 @@ import type {
 import { NetworkManager } from './network'
 import { PostlesStorage } from './storage'
 import { generateUUID } from './utils'
-import { getDeviceInfo } from './device'
+import { getDeviceInfo, getDeviceLocale, getDeviceTimezone } from './device'
 
 export class Postles {
     private config: PostlesConfig
@@ -84,6 +84,8 @@ export class Postles {
             external_id: params.id,
             email: params.email,
             phone: params.phone,
+            locale: params.locale ?? getDeviceLocale(),
+            timezone: params.timezone ?? getDeviceTimezone(),
             data: params.traits,
         }
 

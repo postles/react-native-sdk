@@ -10,6 +10,8 @@ export interface Identity {
     external_id?: string
     phone?: string
     email?: string
+    timezone?: string
+    locale?: string
     data?: Record<string, any>
 }
 
@@ -78,6 +80,8 @@ export interface IdentifyParams {
     id: string
     email?: string
     phone?: string
+    locale?: string // eg "en-US", defaults to the device locale.
+    timezone?: string // IANA timezone (eg "America/New_York"), default to device timezone.
     traits?: Record<string, any>
 }
 
