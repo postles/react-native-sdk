@@ -193,7 +193,16 @@ export class Postles {
             ? `subscriptions?cursor=${encodeURIComponent(cursor)}`
             : 'subscriptions'
 
-        return this.network.get<Page<SubscriptionPreference>>(path, user)
+        const page = await this.network.get<Page<any>>(path, user)
+        return {
+            ...page,
+            results: (page.results ?? []).map((item) => ({
+                subscriptionId: item.subscription_id,
+                name: item.name,
+                channel: item.channel,
+                state: item.state,
+            })),
+        }
     }
 
     /**

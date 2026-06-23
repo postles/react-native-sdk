@@ -77,7 +77,7 @@ export interface Page<T> {
 export type SubscriptionState = 'subscribed' | 'unsubscribed'
 
 export interface SubscriptionPreference {
-    subscription_id: number
+    subscriptionId: number
     name: string
     channel: string
     state: SubscriptionState
