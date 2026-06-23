@@ -10,6 +10,8 @@ import type {
     DeviceRegistrationParams,
     PostlesNotification,
     Page,
+    SubscriptionPreference,
+    SubscriptionState,
 } from './models'
 import { NetworkManager } from './network'
 import { PostlesStorage } from './storage'
@@ -173,6 +175,61 @@ export class Postles {
         }
 
         await this.network.put(`notifications/${notification.id}`, user)
+    }
+
+    /**
+     * Fetch the current user's subscription preferences.
+     *
+     * Only public subscriptions are returned. Pass the `nextCursor` from a
+     * previous page to fetch the next page of results.
+     */
+    async getSubscriptions(cursor?: string): Promise<Page<SubscriptionPreference>> {
+        const user: Alias = {
+            anonymous_id: this.anonymousId,
+            external_id: this.externalId ?? undefined,
+        }
+
+        const path = cursor
+            ? `subscriptions?cursor=${encodeURIComponent(cursor)}`
+            : 'subscriptions'
+
+        const page = await this.network.get<Page<any>>(path, user)
+        return {
+            ...page,
+            results: (page.results ?? []).map((item) => ({
+                subscriptionId: item.subscription_id,
+                name: item.name,
+                channel: item.channel,
+                state: item.state,
+            })),
+        }
+    }
+
+    /**
+     * Update a single subscription preference for the current user.
+     *
+     * Flips one public subscription between `subscribed` and `unsubscribed`.
+     */
+    async setSubscription(subscriptionId: number, state: SubscriptionState): Promise<void> {
+        await this.network.put(`subscriptions/${subscriptionId}`, {
+            anonymous_id: this.anonymousId,
+            external_id: this.externalId ?? undefined,
+            state,
+        })
+    }
+
+    /**
+     * Subscribe the current user to a single subscription.
+     */
+    async subscribe(subscriptionId: number): Promise<void> {
+        await this.setSubscription(subscriptionId, 'subscribed')
+    }
+
+    /**
+     * Unsubscribe the current user from a single subscription.
+     */
+    async unsubscribe(subscriptionId: number): Promise<void> {
+        await this.setSubscription(subscriptionId, 'unsubscribed')
     }
 
     /**

@@ -249,6 +249,27 @@ if (postles?.isPostlesDeepLink(url)) {
 }
 ```
 
+## Preference Center
+
+Read and modify a user's subscription preferences directly through SDK methods — no UI is included, so you can build your own preference center (or manage preferences programmatically). `getSubscriptions()` returns the project's public subscriptions with the current user's state for each, and `setSubscription()` (or the `subscribe`/`unsubscribe` helpers) flips a single subscription. The user must be identified first (via `identify`).
+
+```tsx
+const postles = usePostles()
+
+// Read the current preferences
+const page = await postles?.getSubscriptions()
+page?.results.forEach((pref) => {
+    console.log(pref.name, pref.channel, pref.state)
+})
+
+// Update a preference
+await postles?.unsubscribe(123)
+await postles?.subscribe(123)
+
+// Or set an explicit state
+await postles?.setSubscription(123, 'unsubscribed')
+```
+
 ## API Reference
 
 ### `usePostles()`
@@ -260,6 +281,10 @@ Returns the `Postles` instance from context, or `null` while the SDK is initiali
 | `.identify(params)` | Identify a user |
 | `.track(params)` | Track an event |
 | `.register(params?)` | Register device / push token |
+| `.getSubscriptions(cursor?)` | Fetch the user's subscription preferences |
+| `.setSubscription(id, state)` | Set a subscription to `'subscribed'` or `'unsubscribed'` |
+| `.subscribe(id)` | Subscribe the user to a subscription |
+| `.unsubscribe(id)` | Unsubscribe the user from a subscription |
 | `.reset()` | Reset session on logout |
 | `.isPostlesDeepLink(url)` | Check if URL is a Postles deep link |
 | `.handleDeepLink(url)` | Track click and open the destination URL |

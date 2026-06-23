@@ -12,6 +12,8 @@ export type {
     IdentifyParams,
     TrackParams,
     DeviceRegistrationParams,
+    SubscriptionState,
+    SubscriptionPreference,
 } from './models'
 
 // Components

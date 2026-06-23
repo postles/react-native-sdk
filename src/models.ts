@@ -69,6 +69,18 @@ export interface PostlesNotification {
 export interface Page<T> {
     results: T[]
     nextCursor?: string
+    prevCursor?: string
+    limit?: number
+}
+
+// Subscription preferences
+export type SubscriptionState = 'subscribed' | 'unsubscribed'
+
+export interface SubscriptionPreference {
+    subscriptionId: number
+    name: string
+    channel: string
+    state: SubscriptionState
 }
 
 // In-app messaging
