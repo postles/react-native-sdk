@@ -44,14 +44,16 @@ export interface UseInAppMessagesResult {
 export function useInAppMessages(
     options: UseInAppMessagesOptions = {}
 ): UseInAppMessagesResult {
-    const {
-        autoShow = true,
-        onAction,
-        onError,
-        onNew,
-    } = options
+    const { autoShow = true } = options
 
     const postles = usePostles()
+
+    // Held in a ref so the fetch callbacks keep a stable identity: hosts pass these
+    // as inline closures, and a changed identity would re-run the fetch effects
+    const callbacks = useRef(options)
+    useEffect(() => {
+        callbacks.current = options
+    })
 
     const [currentNotification, setCurrentNotification] =
         useState<PostlesNotification | null>(null)
@@ -81,7 +83,7 @@ export function useInAppMessages(
             if (!postles) return
 
             for (const notification of notifications) {
-                const state = onNew?.(notification) ?? 'show'
+                const state = callbacks.current.onNew?.(notification) ?? 'show'
 
                 switch (state) {
                     case 'show':
@@ -91,7 +93,7 @@ export function useInAppMessages(
                         try {
                             await postles.consume(notification)
                         } catch (err) {
-                            onError?.(
+                            callbacks.current.onError?.(
                                 err instanceof Error
                                     ? err
                                     : new Error(String(err))
@@ -107,7 +109,7 @@ export function useInAppMessages(
                 showNext()
             }
         },
-        [postles, onNew, onError, showNext]
+        [postles, showNext]
     )
 
     const refresh = useCallback(() => {
@@ -117,11 +119,11 @@ export function useInAppMessages(
             .getNotifications()
             .then((page) => processNotifications(page.results))
             .catch((err) => {
-                onError?.(
+                callbacks.current.onError?.(
                     err instanceof Error ? err : new Error(String(err))
                 )
             })
-    }, [postles, processNotifications, onError])
+    }, [postles, processNotifications])
 
     const dismiss = useCallback(() => {
         if (!postles || !currentNotification) return
