@@ -168,7 +168,20 @@ export class Postles {
             external_id: this.externalId ?? undefined,
         }
 
-        return this.network.get<Page<PostlesNotification>>('notifications', user)
+        const page = await this.network.get<Page<any>>('notifications', user)
+        return {
+            ...page,
+            results: (page.results ?? []).map((item) => ({
+                id: item.id,
+                contentType: item.content_type,
+                content: {
+                    ...item.content,
+                    readOnShow: item.content?.read_on_show,
+                },
+                readAt: item.read_at,
+                expiresAt: item.expires_at,
+            })),
+        }
     }
 
     /**
