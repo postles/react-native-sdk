@@ -64,8 +64,9 @@ function ProfileScreen() {
 
 ```typescript
 interface PostlesConfig {
-    apiKey: string       // Your Postles public API key
-    urlEndpoint: string  // Your Postles instance URL
+    apiKey: string                      // Your Postles public API key
+    urlEndpoint: string                 // Your Postles instance URL
+    fetchInAppOnForeground?: boolean    // Check for in-app messages automatically (default: true)
 }
 ```
 
@@ -178,6 +179,16 @@ function PushSetup() {
 }
 ```
 
+### Handling received pushes
+
+Pass the data payload of every notification you receive to `handlePushNotification`. Postles pushes trigger a check for waiting in-app messages, anything else is ignored.
+
+```tsx
+const subscription = Notifications.addNotificationReceivedListener((notification) => {
+    postles.handlePushNotification(notification.request.content.data)
+})
+```
+
 ### With @react-native-community/push-notification-ios
 
 ```tsx
@@ -202,6 +213,10 @@ function PushSetup() {
 ## In-App Messaging
 
 In-app messages require `react-native-webview`.
+
+Your app does not need to fetch messages itself. While `autoShow` is on, `useInAppMessages` checks for waiting messages when it mounts, every time the app returns to the foreground, and whenever you hand a Postles push to `handlePushNotification`. Checks are limited to one every 30 seconds, so returning to the app repeatedly only results in a single request. Mount the hook where you want those checks to happen: near the root of your app for whole-app coverage, or on a single screen if that is the only place messages should appear.
+
+Set `fetchInAppOnForeground: false` in the config to turn the automatic checks off and call `refresh()` on your own schedule instead.
 
 ```tsx
 import { useInAppMessages, InAppMessage } from '@postles/react-native-sdk'
@@ -285,6 +300,8 @@ Returns the `Postles` instance from context, or `null` while the SDK is initiali
 | `.setSubscription(id, state)` | Set a subscription to `'subscribed'` or `'unsubscribed'` |
 | `.subscribe(id)` | Subscribe the user to a subscription |
 | `.unsubscribe(id)` | Unsubscribe the user from a subscription |
+| `.handlePushNotification(data)` | Check for in-app messages when a Postles push arrives |
+| `.requestInAppRefresh()` | Trigger a throttled in-app message check yourself |
 | `.reset()` | Reset session on logout |
 | `.isPostlesDeepLink(url)` | Check if URL is a Postles deep link |
 | `.handleDeepLink(url)` | Track click and open the destination URL |
@@ -295,7 +312,7 @@ Returns the `Postles` instance from context, or `null` while the SDK is initiali
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `autoShow` | `boolean` | `true` | Fetch and show notifications on mount |
+| `autoShow` | `boolean` | `true` | Fetch and show notifications on mount, on foreground, and on push receipt |
 | `useDarkMode` | `boolean` | `false` | Apply dark mode CSS class to HTML notifications |
 | `onNew` | `(n) => 'show' \| 'skip' \| 'consume'` | `'show'` | Filter or consume individual notifications |
 | `onAction` | `(action, context, n) => void` | — | Called when the user triggers an action |
