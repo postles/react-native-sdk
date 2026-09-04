@@ -18,6 +18,8 @@ import { PostlesStorage } from './storage'
 import { generateUUID } from './utils'
 import { getDeviceInfo, getDeviceLocale, getDeviceTimezone } from './device'
 
+const inAppFetchThrottleMs = 30_000
+
 export class Postles {
     private config: PostlesConfig
     private network: NetworkManager
@@ -25,6 +27,8 @@ export class Postles {
     private anonymousId: string
     private externalId: string | null = null
     private deviceId: string
+    private lastInAppFetch = 0
+    private inAppRefreshListeners = new Set<() => void>()
 
     private constructor(
         config: PostlesConfig,
@@ -157,6 +161,8 @@ export class Postles {
      * Fetch in-app notifications for the current user.
      */
     async getNotifications(): Promise<Page<PostlesNotification>> {
+        this.lastInAppFetch = Date.now()
+
         const user: Alias = {
             anonymous_id: this.anonymousId,
             external_id: this.externalId ?? undefined,
@@ -175,6 +181,53 @@ export class Postles {
         }
 
         await this.network.put(`notifications/${notification.id}`, user)
+    }
+
+    /**
+     * Whether the SDK checks for in-app messages on its own.
+     */
+    get fetchInAppOnForeground(): boolean {
+        return this.config.fetchInAppOnForeground ?? true
+    }
+
+    /**
+     * Subscribe to automatic in-app message checks.
+     *
+     * useInAppMessages() does this for you. Returns an unsubscribe function.
+     */
+    onInAppRefresh(listener: () => void): () => void {
+        this.inAppRefreshListeners.add(listener)
+        return () => {
+            this.inAppRefreshListeners.delete(listener)
+        }
+    }
+
+    /**
+     * Ask anything listening for in-app messages to fetch.
+     *
+     * Does nothing if a fetch already happened in the last 30 seconds, or if
+     * `fetchInAppOnForeground` is off. Returns whether the check went out.
+     */
+    requestInAppRefresh(): boolean {
+        if (!this.fetchInAppOnForeground) return false
+        if (Date.now() - this.lastInAppFetch < inAppFetchThrottleMs) return false
+
+        this.inAppRefreshListeners.forEach((listener) => listener())
+        return true
+    }
+
+    /**
+     * Handle a received push notification.
+     *
+     * Pass the notification data from whichever push library you use. Postles
+     * pushes trigger a check for waiting in-app messages, anything else is
+     * ignored. Returns true if the push came from Postles.
+     */
+    handlePushNotification(data?: Record<string, any> | null): boolean {
+        if (!data || data.postles === undefined) return false
+
+        this.requestInAppRefresh()
+        return true
     }
 
     /**

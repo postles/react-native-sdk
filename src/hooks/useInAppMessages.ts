@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { AppState } from 'react-native'
 import type {
     PostlesNotification,
     InAppAction,
@@ -7,7 +8,7 @@ import type {
 import { usePostles } from './usePostles'
 
 export interface UseInAppMessagesOptions {
-    /** Automatically fetch and show notifications. Default: true */
+    /** Automatically fetch and show notifications on mount, on foreground, and on push receipt. Default: true */
     autoShow?: boolean
     /** Apply dark mode CSS class to HTML notifications. Default: false */
     useDarkMode?: boolean
@@ -36,7 +37,7 @@ export interface UseInAppMessagesResult {
     visible: boolean
     /** Dismiss the current notification */
     dismiss: () => void
-    /** Refresh notifications from the server */
+    /** Refresh notifications from the server, ignoring the automatic check interval */
     refresh: () => void
 }
 
@@ -134,6 +135,20 @@ export function useInAppMessages(
     useEffect(() => {
         if (autoShow && postles) {
             refresh()
+        }
+    }, [autoShow, postles, refresh])
+
+    useEffect(() => {
+        if (!autoShow || !postles) return
+
+        const unsubscribe = postles.onInAppRefresh(refresh)
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') postles.requestInAppRefresh()
+        })
+
+        return () => {
+            unsubscribe()
+            subscription.remove()
         }
     }, [autoShow, postles, refresh])
 

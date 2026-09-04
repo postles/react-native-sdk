@@ -1,6 +1,6 @@
 {
   "name": "@postles/react-native-sdk",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Postles React Native SDK for user identification, event tracking, push notifications, and in-app messaging",
   "main": "lib/cjs/index.js",
   "module": "lib/esm/index.js",

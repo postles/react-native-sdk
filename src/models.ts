@@ -2,6 +2,8 @@
 export interface PostlesConfig {
     apiKey: string
     urlEndpoint: string
+    /** Automatically check for in-app messages on foreground and push receipt. Default: true */
+    fetchInAppOnForeground?: boolean
 }
 
 // Wire format types (snake_case, sent to API)
