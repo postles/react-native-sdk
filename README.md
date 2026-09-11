@@ -199,6 +199,18 @@ function PushSetup() {
 }
 ```
 
+### Recording opens
+
+Notifications sent through the send API carry a signed open URL in their data payload. Pass that payload to `handlePushOpen` from whatever runs when the user taps a notification, and Postles records a `message.opened` event. Payloads without the key are ignored.
+
+```tsx
+import messaging from '@react-native-firebase/messaging'
+
+messaging().onNotificationOpenedApp((message) => {
+    postles.handlePushOpen(message.data)
+})
+```
+
 ## In-App Messaging
 
 In-app messages require `react-native-webview`.
@@ -288,6 +300,7 @@ Returns the `Postles` instance from context, or `null` while the SDK is initiali
 | `.reset()` | Reset session on logout |
 | `.isPostlesDeepLink(url)` | Check if URL is a Postles deep link |
 | `.handleDeepLink(url)` | Track click and open the destination URL |
+| `.handlePushOpen(payload)` | Track a push notification open from its data payload |
 | `.getAnonymousId()` | Get current anonymous ID |
 | `.getExternalId()` | Get current external ID |
 
