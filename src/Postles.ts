@@ -18,6 +18,8 @@ import { PostlesStorage } from './storage'
 import { generateUUID } from './utils'
 import { getDeviceInfo, getDeviceLocale, getDeviceTimezone } from './device'
 
+const PUSH_OPEN_URL_KEY = 'postles_open_url'
+
 export class Postles {
     private config: PostlesConfig
     private network: NetworkManager
@@ -266,6 +268,19 @@ export class Postles {
         } catch {
             return null
         }
+    }
+
+    /**
+     * Record that a push notification was opened, from its data payload.
+     *
+     * Returns true when the payload carried a signed open URL.
+     */
+    handlePushOpen(payload: Record<string, unknown> | null | undefined): boolean {
+        const openUrl = payload?.[PUSH_OPEN_URL_KEY]
+        if (typeof openUrl !== 'string' || openUrl === '') return false
+
+        fetch(openUrl, { method: 'GET' }).catch(() => {})
+        return true
     }
 
     /**
