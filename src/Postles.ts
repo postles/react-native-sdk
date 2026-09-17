@@ -12,8 +12,12 @@ import type {
     Page,
     SubscriptionPreference,
     SubscriptionState,
+    Topic,
+    TopicChannel,
+    TopicUpdate,
 } from './models'
 import { NetworkManager } from './network'
+import { toTopic, toTopicChannel } from './topics'
 import { PostlesStorage } from './storage'
 import { generateUUID } from './utils'
 import { getDeviceInfo, getDeviceLocale, getDeviceTimezone } from './device'
@@ -157,79 +161,125 @@ export class Postles {
      * Fetch in-app notifications for the current user.
      */
     async getNotifications(): Promise<Page<PostlesNotification>> {
-        const user: Alias = {
-            anonymous_id: this.anonymousId,
-            external_id: this.externalId ?? undefined,
-        }
-
-        return this.network.get<Page<PostlesNotification>>('notifications', user)
+        return this.network.get<Page<PostlesNotification>>('notifications', this.currentUser())
     }
 
     /**
      * Mark a notification as read/consumed.
      */
     async consume(notification: PostlesNotification): Promise<void> {
-        const user: Alias = {
-            anonymous_id: this.anonymousId,
-            external_id: this.externalId ?? undefined,
-        }
-
-        await this.network.put(`notifications/${notification.id}`, user)
+        await this.network.put(`notifications/${notification.id}`, this.currentUser())
     }
 
     /**
-     * Fetch the current user's subscription preferences.
-     *
-     * Only public subscriptions are returned. Pass the `nextCursor` from a
-     * previous page to fetch the next page of results.
+     * Fetch the current user's topic preferences as a flat list, including the
+     * per-channel master switches (`kind: 'channel'`). Pass the `nextCursor`
+     * from a previous page to fetch the next page.
      */
-    async getSubscriptions(cursor?: string): Promise<Page<SubscriptionPreference>> {
-        const user: Alias = {
-            anonymous_id: this.anonymousId,
-            external_id: this.externalId ?? undefined,
-        }
-
+    async getTopics(cursor?: string): Promise<Page<Topic>> {
         const path = cursor
             ? `subscriptions?cursor=${encodeURIComponent(cursor)}`
             : 'subscriptions'
 
-        const page = await this.network.get<Page<any>>(path, user)
+        const page = await this.network.get<Page<any>>(path, this.currentUser())
         return {
             ...page,
-            results: (page.results ?? []).map((item) => ({
-                subscriptionId: item.subscription_id,
-                name: item.name,
-                channel: item.channel,
-                state: item.state,
-            })),
+            results: (page.results ?? []).map(toTopic),
         }
     }
 
     /**
-     * Update a single subscription preference for the current user.
-     *
-     * Flips one public subscription between `subscribed` and `unsubscribed`.
+     * Fetch the current user's topic preferences grouped into channels, the
+     * shape a preference center screen renders.
      */
-    async setSubscription(subscriptionId: number, state: SubscriptionState): Promise<void> {
+    async getTopicChannels(): Promise<TopicChannel[]> {
+        const body = await this.network.get<{ channels?: any[] }>(
+            'subscriptions/channels',
+            this.currentUser()
+        )
+        return (body.channels ?? []).map(toTopicChannel)
+    }
+
+    /**
+     * Update a single topic preference for the current user. Throws a
+     * `PostlesError` with code 4004 when the channel can only be turned back
+     * on from the handset.
+     */
+    async setTopic(subscriptionId: number, state: TopicUpdate['state']): Promise<void> {
         await this.network.put(`subscriptions/${subscriptionId}`, {
-            anonymous_id: this.anonymousId,
-            external_id: this.externalId ?? undefined,
+            ...this.currentUser(),
             state,
         })
     }
 
     /**
-     * Subscribe the current user to a single subscription.
+     * Update up to 100 topic preferences in one request, applied together so a
+     * whole screen saves at once. Refused entirely, with a `PostlesError` of
+     * code 4004, if any update turns a handset-locked channel back on.
      */
-    async subscribe(subscriptionId: number): Promise<void> {
-        await this.setSubscription(subscriptionId, 'subscribed')
+    async setTopics(updates: TopicUpdate[]): Promise<void> {
+        if (!updates.length) return
+
+        await this.network.put(
+            'subscriptions',
+            updates.map((update) => ({
+                subscription_id: update.subscriptionId,
+                state: update.state,
+            })),
+            this.currentUser()
+        )
     }
 
     /**
-     * Unsubscribe the current user from a single subscription.
+     * Subscribe the current user to a single topic.
+     */
+    async subscribeTopic(subscriptionId: number): Promise<void> {
+        await this.setTopic(subscriptionId, 'subscribed')
+    }
+
+    /**
+     * Unsubscribe the current user from a single topic.
+     */
+    async unsubscribeTopic(subscriptionId: number): Promise<void> {
+        await this.setTopic(subscriptionId, 'unsubscribed')
+    }
+
+    /**
+     * @deprecated Use {@link Postles.getTopics}. A topic the user has never
+     * chosen (`not_opted_in`) is reported here as `'unsubscribed'`.
+     */
+    async getSubscriptions(cursor?: string): Promise<Page<SubscriptionPreference>> {
+        const page = await this.getTopics(cursor)
+        return {
+            ...page,
+            results: page.results.map((topic) => ({
+                subscriptionId: topic.subscriptionId,
+                name: topic.name,
+                channel: topic.channel,
+                state: topic.state === 'subscribed' ? 'subscribed' : 'unsubscribed',
+            })),
+        }
+    }
+
+    /**
+     * @deprecated Use {@link Postles.setTopic}.
+     */
+    async setSubscription(subscriptionId: number, state: SubscriptionState): Promise<void> {
+        await this.setTopic(subscriptionId, state)
+    }
+
+    /**
+     * @deprecated Use {@link Postles.subscribeTopic}.
+     */
+    async subscribe(subscriptionId: number): Promise<void> {
+        await this.subscribeTopic(subscriptionId)
+    }
+
+    /**
+     * @deprecated Use {@link Postles.unsubscribeTopic}.
      */
     async unsubscribe(subscriptionId: number): Promise<void> {
-        await this.setSubscription(subscriptionId, 'unsubscribed')
+        await this.unsubscribeTopic(subscriptionId)
     }
 
     /**
@@ -289,6 +339,13 @@ export class Postles {
 
     getExternalId(): string | null {
         return this.externalId
+    }
+
+    private currentUser(): Alias {
+        return {
+            anonymous_id: this.anonymousId,
+            external_id: this.externalId ?? undefined,
+        }
     }
 
     private async postEvent(event: Event, retries = 3): Promise<void> {

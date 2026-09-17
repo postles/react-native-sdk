@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Type Check & Build
+    name: Type Check, Test & Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,6 +23,9 @@ jobs:
 
       - name: Type Check
         run: npx tsc --noEmit
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
