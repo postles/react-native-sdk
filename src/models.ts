@@ -73,9 +73,44 @@ export interface Page<T> {
     limit?: number
 }
 
-// Subscription preferences
+// Topic preferences
+export type TopicState = 'subscribed' | 'unsubscribed' | 'not_opted_in'
+export type TopicKind = 'channel' | 'topic'
+
+export interface Topic {
+    subscriptionId: number
+    name: string
+    channel: string
+    kind: TopicKind
+    isOptIn: boolean
+    state: TopicState
+}
+
+export interface TopicChannel {
+    channel: string
+    label: string
+    master: Topic | null
+    topics: Topic[]
+    /** The master is off, so every topic below it is suppressed. */
+    paused: boolean
+    /** False when the master can be turned off here but only back on from the handset. */
+    canResubscribe: boolean
+    /** The number to text START to. Only present when `canResubscribe` is false. */
+    resubscribeTextNumber?: string | null
+}
+
+export interface TopicUpdate {
+    subscriptionId: number
+    state: 'subscribed' | 'unsubscribed'
+}
+
+/**
+ * @deprecated Use {@link TopicState}. This type cannot express `not_opted_in`,
+ * which the deprecated methods report as `'unsubscribed'`.
+ */
 export type SubscriptionState = 'subscribed' | 'unsubscribed'
 
+/** @deprecated Use {@link Topic}. */
 export interface SubscriptionPreference {
     subscriptionId: number
     name: string

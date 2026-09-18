@@ -249,26 +249,128 @@ if (postles?.isPostlesDeepLink(url)) {
 }
 ```
 
-## Preference Center
+## Preference Center (Topics)
 
-Read and modify a user's subscription preferences directly through SDK methods — no UI is included, so you can build your own preference center (or manage preferences programmatically). `getSubscriptions()` returns the project's public subscriptions with the current user's state for each, and `setSubscription()` (or the `subscribe`/`unsubscribe` helpers) flips a single subscription. The user must be identified first (via `identify`).
+A user's messaging preferences are made of **topics** grouped into **channels**. Each channel (email, text, push) has a master switch and, under it, the individual topics a user can turn on and off. `useTopicChannels()` loads them in the shape a preference screen renders, and saves a whole screen in one request. No UI is included, so you build your own screen. The user must be identified first (via `identify`).
+
+```tsx
+import {
+    useTopicChannels,
+    isTopicResubscribeLocked,
+    type Topic,
+    type TopicUpdate,
+} from '@postles/react-native-sdk'
+import { Button, Switch, Text, View } from 'react-native'
+import { useState } from 'react'
+
+function PreferencesScreen() {
+    const { channels, loading, error, save } = useTopicChannels()
+    const [changes, setChanges] = useState<Record<number, TopicUpdate['state']>>({})
+
+    if (loading) return <Text>Loading…</Text>
+    if (error) return <Text>{error.message}</Text>
+
+    const stateOf = (topic: Topic): TopicUpdate['state'] =>
+        changes[topic.subscriptionId] ?? (topic.state === 'subscribed' ? 'subscribed' : 'unsubscribed')
+
+    const toggle = (topic: Topic, on: boolean) =>
+        setChanges((current) => ({
+            ...current,
+            [topic.subscriptionId]: on ? 'subscribed' : 'unsubscribed',
+        }))
+
+    const onSave = async () => {
+        // Send every master that is not locked, plus only the topics whose
+        // master was on when the screen rendered.
+        const updates = channels.flatMap((channel) => [
+            ...(channel.master && channel.canResubscribe ? [channel.master] : []),
+            ...(channel.paused ? [] : channel.topics),
+        ]).map((topic) => ({ subscriptionId: topic.subscriptionId, state: stateOf(topic) }))
+
+        try {
+            await save(updates)
+        } catch (err) {
+            if (isTopicResubscribeLocked(err)) {
+                // The channel can only be turned back on from the handset.
+            }
+        }
+    }
+
+    return (
+        <View>
+            {channels.map((channel) => {
+                const master = channel.master
+                return <View key={channel.channel}>
+                    <Text>{channel.label}</Text>
+
+                    {master && (channel.canResubscribe
+                        ? <Switch
+                            value={stateOf(master) === 'subscribed'}
+                            onValueChange={(on) => toggle(master, on)}
+                        />
+                        : <Text>
+                            To start receiving text messages again, text START to{' '}
+                            {channel.resubscribeTextNumber ?? 'our number'}.
+                        </Text>
+                    )}
+
+                    {/* Only show topic toggles when there is more than one, or any is opt-in */}
+                    {(channel.topics.length > 1 || channel.topics.some((t) => t.isOptIn)) &&
+                        channel.topics.map((topic) => (
+                            <Switch
+                                key={topic.subscriptionId}
+                                disabled={channel.paused}
+                                value={stateOf(topic) === 'subscribed'}
+                                onValueChange={(on) => toggle(topic, on)}
+                            />
+                        ))}
+                </View>
+            })}
+            <Button title="Save" onPress={onSave} />
+        </View>
+    )
+}
+```
+
+### Rendering rules
+
+- Show topic toggles under a channel only when it has more than one topic or any opt-in topic. Otherwise show just the channel toggle.
+- While `paused` is true the master is off, so topic toggles are disabled and their values are not submitted.
+- When `canResubscribe` is false and the channel is off, show a notice with `resubscribeTextNumber` instead of a switch. Text is the only channel that works this way today: consent to restart has to come from the handset by replying START.
+- A topic the user has never chosen has state `not_opted_in`, which is different from an explicit `unsubscribed`. Render it as off. Only `subscribed` and `unsubscribed` are ever sent back.
+
+### Without the hook
 
 ```tsx
 const postles = usePostles()
 
-// Read the current preferences
-const page = await postles?.getSubscriptions()
-page?.results.forEach((pref) => {
-    console.log(pref.name, pref.channel, pref.state)
-})
+const channels = await postles?.getTopicChannels()
+const page = await postles?.getTopics()
 
-// Update a preference
-await postles?.unsubscribe(123)
-await postles?.subscribe(123)
-
-// Or set an explicit state
-await postles?.setSubscription(123, 'unsubscribed')
+await postles?.setTopic(123, 'unsubscribed')
+await postles?.subscribeTopic(123)
+await postles?.unsubscribeTopic(123)
+await postles?.setTopics([{ subscriptionId: 123, state: 'subscribed' }])
 ```
+
+### Errors
+
+Failed API calls throw a `PostlesError` carrying the HTTP `status` and the Postles error `code`. Turning a text channel back on from the app is refused with code `4004`; `isTopicResubscribeLocked(error)` checks for it.
+
+### Renamed from subscriptions
+
+The old subscription names still work and behave the same, but are deprecated and will be removed in a future major version.
+
+| Old | New |
+|-----|-----|
+| `getSubscriptions(cursor?)` | `getTopics(cursor?)` |
+| `setSubscription(id, state)` | `setTopic(id, state)` |
+| `subscribe(id)` | `subscribeTopic(id)` |
+| `unsubscribe(id)` | `unsubscribeTopic(id)` |
+| `SubscriptionPreference` | `Topic` |
+| `SubscriptionState` | `TopicState` |
+
+The deprecated methods cannot express the `not_opted_in` state and report it as `'unsubscribed'`.
 
 ## API Reference
 
@@ -281,10 +383,12 @@ Returns the `Postles` instance from context, or `null` while the SDK is initiali
 | `.identify(params)` | Identify a user |
 | `.track(params)` | Track an event |
 | `.register(params?)` | Register device / push token |
-| `.getSubscriptions(cursor?)` | Fetch the user's subscription preferences |
-| `.setSubscription(id, state)` | Set a subscription to `'subscribed'` or `'unsubscribed'` |
-| `.subscribe(id)` | Subscribe the user to a subscription |
-| `.unsubscribe(id)` | Unsubscribe the user from a subscription |
+| `.getTopics(cursor?)` | Fetch the user's topic preferences as a flat list |
+| `.getTopicChannels()` | Fetch the user's topic preferences grouped into channels |
+| `.setTopic(id, state)` | Set a topic to `'subscribed'` or `'unsubscribed'` |
+| `.setTopics(updates)` | Save up to 100 topic changes in one request |
+| `.subscribeTopic(id)` | Subscribe the user to a topic |
+| `.unsubscribeTopic(id)` | Unsubscribe the user from a topic |
 | `.reset()` | Reset session on logout |
 | `.isPostlesDeepLink(url)` | Check if URL is a Postles deep link |
 | `.handleDeepLink(url)` | Track click and open the destination URL |
@@ -303,6 +407,10 @@ Returns the `Postles` instance from context, or `null` while the SDK is initiali
 | `onError` | `(error) => void` | — | Called on fetch or display errors |
 
 Returns `{ currentNotification, visible, dismiss, refresh }`.
+
+### `useTopicChannels()`
+
+Returns `{ channels, loading, error, save, refresh }`. `save(updates)` sends every update in one request and reloads the channels; it rejects with a `PostlesError` if the server refuses, so a screen can catch a locked resubscribe.
 
 ### Components
 
