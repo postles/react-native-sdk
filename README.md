@@ -257,6 +257,7 @@ A user's messaging preferences are made of **topics** grouped into **channels**.
 import {
     useTopicChannels,
     isTopicResubscribeLocked,
+    type Topic,
     type TopicUpdate,
 } from '@postles/react-native-sdk'
 import { Button, Switch, Text, View } from 'react-native'
@@ -269,10 +270,10 @@ function PreferencesScreen() {
     if (loading) return <Text>Loading…</Text>
     if (error) return <Text>{error.message}</Text>
 
-    const stateOf = (topic) =>
+    const stateOf = (topic: Topic): TopicUpdate['state'] =>
         changes[topic.subscriptionId] ?? (topic.state === 'subscribed' ? 'subscribed' : 'unsubscribed')
 
-    const toggle = (topic, on: boolean) =>
+    const toggle = (topic: Topic, on: boolean) =>
         setChanges((current) => ({
             ...current,
             [topic.subscriptionId]: on ? 'subscribed' : 'unsubscribed',
@@ -297,14 +298,15 @@ function PreferencesScreen() {
 
     return (
         <View>
-            {channels.map((channel) => (
-                <View key={channel.channel}>
+            {channels.map((channel) => {
+                const master = channel.master
+                return <View key={channel.channel}>
                     <Text>{channel.label}</Text>
 
-                    {channel.master && (channel.canResubscribe
+                    {master && (channel.canResubscribe
                         ? <Switch
-                            value={stateOf(channel.master) === 'subscribed'}
-                            onValueChange={(on) => toggle(channel.master, on)}
+                            value={stateOf(master) === 'subscribed'}
+                            onValueChange={(on) => toggle(master, on)}
                         />
                         : <Text>
                             To start receiving text messages again, text START to{' '}
@@ -323,7 +325,7 @@ function PreferencesScreen() {
                             />
                         ))}
                 </View>
-            ))}
+            })}
             <Button title="Save" onPress={onSave} />
         </View>
     )

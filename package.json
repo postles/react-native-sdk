@@ -11,6 +11,7 @@
   ],
   "files": [
     "src",
+    "!src/__tests__",
     "lib"
   ],
   "scripts": {
