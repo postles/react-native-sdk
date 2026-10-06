@@ -8,7 +8,7 @@ import type {
 import { usePostles } from './usePostles'
 
 export interface UseInAppMessagesOptions {
-    /** Automatically fetch and show notifications on mount, on foreground, and on push receipt. Default: true */
+    /** Automatically fetch and show notifications. Default: true */
     autoShow?: boolean
     /** Apply dark mode CSS class to HTML notifications. Default: false */
     useDarkMode?: boolean
@@ -37,7 +37,7 @@ export interface UseInAppMessagesResult {
     visible: boolean
     /** Dismiss the current notification */
     dismiss: () => void
-    /** Refresh notifications from the server, ignoring the automatic check interval */
+    /** Refresh notifications from the server */
     refresh: () => void
 }
 
@@ -48,8 +48,7 @@ export function useInAppMessages(
 
     const postles = usePostles()
 
-    // Held in a ref so the fetch callbacks keep a stable identity: hosts pass these
-    // as inline closures, and a changed identity would re-run the fetch effects
+    // Hosts pass these as inline closures; a changing identity would re-run the fetch effects.
     const callbacks = useRef(options)
     useEffect(() => {
         callbacks.current = options

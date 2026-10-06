@@ -56,7 +56,6 @@ export default function PushSetup() {
             }
         })
 
-        // Any Postles push is also a cue to check for waiting in-app messages
         const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
             sdk.handlePushNotification(notification.request.content.data)
         })

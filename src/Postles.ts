@@ -190,18 +190,10 @@ export class Postles {
         await this.network.put(`notifications/${notification.id}`, this.currentUser())
     }
 
-    /**
-     * Whether the SDK checks for in-app messages on its own.
-     */
     get fetchInAppOnForeground(): boolean {
         return this.config.fetchInAppOnForeground ?? true
     }
 
-    /**
-     * Subscribe to automatic in-app message checks.
-     *
-     * useInAppMessages() does this for you. Returns an unsubscribe function.
-     */
     onInAppRefresh(listener: () => void): () => void {
         this.inAppRefreshListeners.add(listener)
         return () => {
@@ -209,12 +201,6 @@ export class Postles {
         }
     }
 
-    /**
-     * Ask anything listening for in-app messages to fetch.
-     *
-     * Does nothing if a fetch already happened in the last 30 seconds, or if
-     * `fetchInAppOnForeground` is off. Returns whether the check went out.
-     */
     requestInAppRefresh(): boolean {
         if (!this.fetchInAppOnForeground) return false
         if (Date.now() - this.lastInAppFetch < inAppFetchThrottleMs) return false
@@ -223,13 +209,7 @@ export class Postles {
         return true
     }
 
-    /**
-     * Handle a received push notification.
-     *
-     * Pass the notification data from whichever push library you use. Postles
-     * pushes trigger a check for waiting in-app messages, anything else is
-     * ignored. Returns true if the push came from Postles.
-     */
+    /** Returns true when the push came from Postles; any other push is ignored. */
     handlePushNotification(data?: Record<string, any> | null): boolean {
         if (!data || data.postles === undefined) return false
 

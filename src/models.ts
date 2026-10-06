@@ -2,7 +2,7 @@
 export interface PostlesConfig {
     apiKey: string
     urlEndpoint: string
-    /** Automatically check for in-app messages on foreground and push receipt. Default: true */
+    /** Default: true */
     fetchInAppOnForeground?: boolean
 }
 
