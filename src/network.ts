@@ -1,4 +1,5 @@
 import type { Alias, PostlesConfig } from './models'
+import { PostlesError } from './errors'
 
 export class NetworkManager {
     private config: PostlesConfig
@@ -25,6 +26,40 @@ export class NetworkManager {
         return headers
     }
 
+    private identityHeaders(user?: Alias): Record<string, string | undefined> {
+        if (!user) return {}
+        return {
+            'x-anonymous-id': user.anonymous_id,
+            'x-external-id': user.external_id,
+        }
+    }
+
+    private async fail(method: string, path: string, response: Response): Promise<never> {
+        const fallback = `${method} ${path} failed with status ${response.status}`
+        let body: any
+        try {
+            body = JSON.parse(await response.text())
+        } catch {
+            body = undefined
+        }
+        throw new PostlesError(
+            typeof body?.error === 'string' && body.error ? body.error : fallback,
+            response.status,
+            typeof body?.code === 'number' ? body.code : undefined
+        )
+    }
+
+    private async parse<T>(response: Response): Promise<T | void> {
+        const text = await response.text()
+        if (!text) return
+
+        try {
+            return JSON.parse(text) as T
+        } catch {
+            return
+        }
+    }
+
     async post<T = void>(path: string, body: any): Promise<T | void> {
         const response = await fetch(this.buildUrl(path), {
             method: 'POST',
@@ -33,53 +68,36 @@ export class NetworkManager {
         })
 
         if (!response.ok) {
-            throw new Error(`POST ${path} failed with status ${response.status}`)
+            return this.fail('POST', path, response)
         }
 
-        const text = await response.text()
-        if (!text) return
-
-        try {
-            return JSON.parse(text) as T
-        } catch {
-            return
-        }
+        return this.parse<T>(response)
     }
 
     async get<T>(path: string, user: Alias): Promise<T> {
         const response = await fetch(this.buildUrl(path), {
             method: 'GET',
-            headers: this.buildHeaders({
-                'x-anonymous-id': user.anonymous_id,
-                'x-external-id': user.external_id,
-            }),
+            headers: this.buildHeaders(this.identityHeaders(user)),
         })
 
         if (!response.ok) {
-            throw new Error(`GET ${path} failed with status ${response.status}`)
+            return this.fail('GET', path, response)
         }
 
         return response.json() as Promise<T>
     }
 
-    async put<T = void>(path: string, body: any): Promise<T | void> {
+    async put<T = void>(path: string, body: any, user?: Alias): Promise<T | void> {
         const response = await fetch(this.buildUrl(path), {
             method: 'PUT',
-            headers: this.buildHeaders(),
+            headers: this.buildHeaders(this.identityHeaders(user)),
             body: JSON.stringify(body),
         })
 
         if (!response.ok) {
-            throw new Error(`PUT ${path} failed with status ${response.status}`)
+            return this.fail('PUT', path, response)
         }
 
-        const text = await response.text()
-        if (!text) return
-
-        try {
-            return JSON.parse(text) as T
-        } catch {
-            return
-        }
+        return this.parse<T>(response)
     }
 }
