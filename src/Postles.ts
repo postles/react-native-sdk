@@ -207,7 +207,8 @@ export class Postles {
     }
 
     requestInAppRefresh(): boolean {
-        if (Date.now() - this.lastInAppFetch < inAppFetchThrottleMs) return false
+        const elapsed = Date.now() - this.lastInAppFetch
+        if (elapsed >= 0 && elapsed < inAppFetchThrottleMs) return false
 
         this.inAppRefreshListeners.forEach((listener) => listener())
         return true
