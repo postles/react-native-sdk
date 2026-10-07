@@ -216,7 +216,7 @@ In-app messages require `react-native-webview`.
 
 Your app does not need to fetch messages itself. While `autoShow` is on, `useInAppMessages` checks for waiting messages when it mounts, every time the app returns to the foreground, and whenever you hand a Postles push to `handlePushNotification`. Checks are limited to one every 30 seconds, so returning to the app repeatedly only results in a single request. Mount the hook where you want those checks to happen: near the root of your app for whole-app coverage, or on a single screen if that is the only place messages should appear.
 
-Set `fetchInAppOnForeground: false` in the config to turn the automatic checks off and call `refresh()` on your own schedule instead.
+Set `fetchInAppOnForeground: false` in the config to turn off the foreground and push checks. The check when the hook mounts still follows `autoShow`, exactly as before this setting existed; set `autoShow: false` too if your app should only fetch when it calls `refresh()`.
 
 ```tsx
 import { useInAppMessages, InAppMessage } from '@postles/react-native-sdk'

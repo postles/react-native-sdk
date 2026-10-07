@@ -33,6 +33,7 @@ export class Postles {
     private deviceId: string
     private lastInAppFetch = 0
     private inAppRefreshListeners = new Set<() => void>()
+    private notificationsInFlight: Promise<Page<PostlesNotification>> | null = null
 
     private constructor(
         config: PostlesConfig,
@@ -164,9 +165,17 @@ export class Postles {
     /**
      * Fetch in-app notifications for the current user.
      */
-    async getNotifications(): Promise<Page<PostlesNotification>> {
-        this.lastInAppFetch = Date.now()
+    getNotifications(): Promise<Page<PostlesNotification>> {
+        if (this.notificationsInFlight) return this.notificationsInFlight
 
+        this.lastInAppFetch = Date.now()
+        this.notificationsInFlight = this.fetchNotifications().finally(() => {
+            this.notificationsInFlight = null
+        })
+        return this.notificationsInFlight
+    }
+
+    private async fetchNotifications(): Promise<Page<PostlesNotification>> {
         const page = await this.network.get<Page<any>>('notifications', this.currentUser())
         return {
             ...page,

@@ -58,6 +58,7 @@ export function useInAppMessages(
         useState<PostlesNotification | null>(null)
     const [visible, setVisible] = useState(false)
     const notificationQueue = useRef<PostlesNotification[]>([])
+    const currentRef = useRef<PostlesNotification | null>(null)
     const visibleRef = useRef(false)
 
     useEffect(() => {
@@ -66,6 +67,7 @@ export function useInAppMessages(
 
     const showNext = useCallback(() => {
         const next = notificationQueue.current.shift()
+        currentRef.current = next ?? null
         if (next) {
             setCurrentNotification(next)
             setVisible(true)
@@ -82,6 +84,11 @@ export function useInAppMessages(
             if (!postles) return
 
             for (const notification of notifications) {
+                const alreadyPending =
+                    currentRef.current?.id === notification.id ||
+                    notificationQueue.current.some((queued) => queued.id === notification.id)
+                if (alreadyPending) continue
+
                 const state = callbacks.current.onNew?.(notification) ?? 'show'
 
                 switch (state) {
