@@ -22,6 +22,8 @@ import { PostlesStorage } from './storage'
 import { generateUUID } from './utils'
 import { getDeviceInfo, getDeviceLocale, getDeviceTimezone } from './device'
 
+const inAppFetchThrottleMs = 30_000
+
 export class Postles {
     private config: PostlesConfig
     private network: NetworkManager
@@ -29,6 +31,9 @@ export class Postles {
     private anonymousId: string
     private externalId: string | null = null
     private deviceId: string
+    private lastInAppFetch = 0
+    private inAppRefreshListeners = new Set<() => void>()
+    private notificationsInFlight: Promise<Page<PostlesNotification>> | null = null
 
     private constructor(
         config: PostlesConfig,
@@ -160,8 +165,31 @@ export class Postles {
     /**
      * Fetch in-app notifications for the current user.
      */
-    async getNotifications(): Promise<Page<PostlesNotification>> {
-        return this.network.get<Page<PostlesNotification>>('notifications', this.currentUser())
+    getNotifications(): Promise<Page<PostlesNotification>> {
+        if (this.notificationsInFlight) return this.notificationsInFlight
+
+        this.lastInAppFetch = Date.now()
+        this.notificationsInFlight = this.fetchNotifications().finally(() => {
+            this.notificationsInFlight = null
+        })
+        return this.notificationsInFlight
+    }
+
+    private async fetchNotifications(): Promise<Page<PostlesNotification>> {
+        const page = await this.network.get<Page<any>>('notifications', this.currentUser())
+        return {
+            ...page,
+            results: (page.results ?? []).map((item) => ({
+                id: item.id,
+                contentType: item.content_type,
+                content: {
+                    ...item.content,
+                    readOnShow: item.content?.read_on_show,
+                },
+                readAt: item.read_at,
+                expiresAt: item.expires_at,
+            })),
+        }
     }
 
     /**
@@ -169,6 +197,29 @@ export class Postles {
      */
     async consume(notification: PostlesNotification): Promise<void> {
         await this.network.put(`notifications/${notification.id}`, this.currentUser())
+    }
+
+    onInAppRefresh(listener: () => void): () => void {
+        this.inAppRefreshListeners.add(listener)
+        return () => {
+            this.inAppRefreshListeners.delete(listener)
+        }
+    }
+
+    requestInAppRefresh(): boolean {
+        const elapsed = Date.now() - this.lastInAppFetch
+        if (elapsed >= 0 && elapsed < inAppFetchThrottleMs) return false
+
+        this.inAppRefreshListeners.forEach((listener) => listener())
+        return true
+    }
+
+    /** Returns true when the push came from Postles; any other push is ignored. */
+    handlePushNotification(data?: Record<string, any> | null): boolean {
+        if (!data || data.postles === undefined) return false
+
+        this.requestInAppRefresh()
+        return true
     }
 
     /**

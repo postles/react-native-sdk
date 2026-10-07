@@ -47,7 +47,7 @@ export default function PushSetup() {
         registerPush()
 
         // Re-register whenever the OS issues a new token
-        const subscription = Notifications.addPushTokenListener(async ({ data: token }) => {
+        const tokenSubscription = Notifications.addPushTokenListener(async ({ data: token }) => {
             try {
                 await sdk.register({ token })
                 console.log('[Postles] Push token refreshed')
@@ -56,7 +56,14 @@ export default function PushSetup() {
             }
         })
 
-        return () => subscription.remove()
+        const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
+            sdk.handlePushNotification(notification.request.content.data)
+        })
+
+        return () => {
+            tokenSubscription.remove()
+            receivedSubscription.remove()
+        }
     }, [postles])
 
     return null

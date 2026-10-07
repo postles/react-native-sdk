@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { AppState } from 'react-native'
 import type {
     PostlesNotification,
     InAppAction,
@@ -43,19 +44,21 @@ export interface UseInAppMessagesResult {
 export function useInAppMessages(
     options: UseInAppMessagesOptions = {}
 ): UseInAppMessagesResult {
-    const {
-        autoShow = true,
-        onAction,
-        onError,
-        onNew,
-    } = options
+    const { autoShow = true } = options
 
     const postles = usePostles()
+
+    // Hosts pass these as inline closures; a changing identity would re-run the fetch effects.
+    const callbacks = useRef(options)
+    useEffect(() => {
+        callbacks.current = options
+    })
 
     const [currentNotification, setCurrentNotification] =
         useState<PostlesNotification | null>(null)
     const [visible, setVisible] = useState(false)
     const notificationQueue = useRef<PostlesNotification[]>([])
+    const currentRef = useRef<PostlesNotification | null>(null)
     const visibleRef = useRef(false)
 
     useEffect(() => {
@@ -64,6 +67,7 @@ export function useInAppMessages(
 
     const showNext = useCallback(() => {
         const next = notificationQueue.current.shift()
+        currentRef.current = next ?? null
         if (next) {
             setCurrentNotification(next)
             setVisible(true)
@@ -80,7 +84,12 @@ export function useInAppMessages(
             if (!postles) return
 
             for (const notification of notifications) {
-                const state = onNew?.(notification) ?? 'show'
+                const alreadyPending =
+                    currentRef.current?.id === notification.id ||
+                    notificationQueue.current.some((queued) => queued.id === notification.id)
+                if (alreadyPending) continue
+
+                const state = callbacks.current.onNew?.(notification) ?? 'show'
 
                 switch (state) {
                     case 'show':
@@ -90,7 +99,7 @@ export function useInAppMessages(
                         try {
                             await postles.consume(notification)
                         } catch (err) {
-                            onError?.(
+                            callbacks.current.onError?.(
                                 err instanceof Error
                                     ? err
                                     : new Error(String(err))
@@ -106,7 +115,7 @@ export function useInAppMessages(
                 showNext()
             }
         },
-        [postles, onNew, onError, showNext]
+        [postles, showNext]
     )
 
     const refresh = useCallback(() => {
@@ -116,11 +125,11 @@ export function useInAppMessages(
             .getNotifications()
             .then((page) => processNotifications(page.results))
             .catch((err) => {
-                onError?.(
+                callbacks.current.onError?.(
                     err instanceof Error ? err : new Error(String(err))
                 )
             })
-    }, [postles, processNotifications, onError])
+    }, [postles, processNotifications])
 
     const dismiss = useCallback(() => {
         if (!postles || !currentNotification) return
@@ -134,6 +143,20 @@ export function useInAppMessages(
     useEffect(() => {
         if (autoShow && postles) {
             refresh()
+        }
+    }, [autoShow, postles, refresh])
+
+    useEffect(() => {
+        if (!autoShow || !postles) return
+
+        const unsubscribe = postles.onInAppRefresh(refresh)
+        const subscription = AppState.addEventListener('change', (state) => {
+            if (state === 'active') postles.requestInAppRefresh()
+        })
+
+        return () => {
+            unsubscribe()
+            subscription.remove()
         }
     }, [autoShow, postles, refresh])
 
