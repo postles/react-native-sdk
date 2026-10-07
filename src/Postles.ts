@@ -199,10 +199,6 @@ export class Postles {
         await this.network.put(`notifications/${notification.id}`, this.currentUser())
     }
 
-    get fetchInAppOnForeground(): boolean {
-        return this.config.fetchInAppOnForeground ?? true
-    }
-
     onInAppRefresh(listener: () => void): () => void {
         this.inAppRefreshListeners.add(listener)
         return () => {
@@ -211,7 +207,6 @@ export class Postles {
     }
 
     requestInAppRefresh(): boolean {
-        if (!this.fetchInAppOnForeground) return false
         if (Date.now() - this.lastInAppFetch < inAppFetchThrottleMs) return false
 
         this.inAppRefreshListeners.forEach((listener) => listener())

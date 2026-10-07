@@ -2,8 +2,6 @@
 export interface PostlesConfig {
     apiKey: string
     urlEndpoint: string
-    /** Default: true */
-    fetchInAppOnForeground?: boolean
 }
 
 // Wire format types (snake_case, sent to API)
