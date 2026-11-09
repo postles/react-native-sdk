@@ -21,7 +21,9 @@ export interface Alias {
 }
 
 export interface Geo {
+    /** Two-letter ISO country code. */
     country?: string
+    /** Region or state code within the country. */
     region?: string
     city?: string
 }
@@ -31,6 +33,7 @@ export interface Event {
     anonymous_id: string
     external_id?: string
     data?: Record<string, any>
+    /** Omit to use the location the request came from (public keys only), or send `null` to store no location. */
     geo?: Geo | null
 }
 
@@ -142,6 +145,7 @@ export interface IdentifyParams {
 export interface TrackParams {
     event: string
     properties?: Record<string, any>
+    /** Omit to use the location the request came from (public keys only), or send `null` to store no location. */
     geo?: Geo | null
 }
 
