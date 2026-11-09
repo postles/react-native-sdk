@@ -127,6 +127,15 @@ await postles.track({
 })
 ```
 
+With a public API key, each event is stored with the location the request came from. To set the location yourself, pass `geo`; to store no location, pass `geo: null`.
+
+```tsx
+await postles.track({
+    event: 'Button Tapped',
+    geo: { country: 'US', region: 'IL', city: 'Chicago' },
+})
+```
+
 ## Push Notifications
 
 The SDK accepts push tokens as strings, so it works with any push notification library.

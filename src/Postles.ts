@@ -115,6 +115,7 @@ export class Postles {
             anonymous_id: this.anonymousId,
             external_id: this.externalId ?? undefined,
             data: params.properties,
+            geo: params.geo,
         }
 
         await this.postEvent(event)
