@@ -20,11 +20,18 @@ export interface Alias {
     external_id?: string
 }
 
+export interface Geo {
+    country?: string
+    region?: string
+    city?: string
+}
+
 export interface Event {
     name: string
     anonymous_id: string
     external_id?: string
     data?: Record<string, any>
+    geo?: Geo | null
 }
 
 export interface Device {
@@ -135,6 +142,7 @@ export interface IdentifyParams {
 export interface TrackParams {
     event: string
     properties?: Record<string, any>
+    geo?: Geo | null
 }
 
 export interface DeviceRegistrationParams {

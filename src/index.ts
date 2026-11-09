@@ -11,6 +11,7 @@ export type {
     InAppDisplayState,
     IdentifyParams,
     TrackParams,
+    Geo,
     DeviceRegistrationParams,
     SubscriptionState,
     SubscriptionPreference,
